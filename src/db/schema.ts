@@ -18,7 +18,7 @@ export const category = pgEnum('category', [
 
 export const storyBlockType = pgEnum('story_block_type', ['heading', 'paragraph', 'quote', 'stat', 'image']);
 export const paymentMethod = pgEnum('payment_method', ['Apple Pay', 'Google Pay', 'Credit Card']);
-export const paymentStatus = pgEnum('payment_status', ['pending', 'succeeded', 'declined', 'failed', 'cancelled']);
+export const paymentStatus = pgEnum('payment_status', ['pending', 'succeeded', 'declined', 'failed', 'cancelled', 'refunded']);
 export const notificationType = pgEnum('notification_type', [
   'milestone', 'submission', 'contribution', 'promotion', 'system'
 ]);
@@ -115,6 +115,7 @@ export const contributions = pgTable('contributions', {
   anonymous: boolean('anonymous').notNull().default(true), // private by default
   backerName: varchar('backer_name', { length: 60 }),
   receiptId: varchar('receipt_id', { length: 20 }).notNull(),
+  // SHA-256 of the access token given to the payer once, used to confirm, cancel or view the receipt as a guest
   settleTokenHash: varchar('settle_token_hash', { length: 64 }).notNull(),
   idempotencyKey: varchar('idempotency_key', { length: 80 }),
   createdAt: createdAt()

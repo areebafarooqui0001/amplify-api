@@ -8,6 +8,13 @@
       "when": 1793345035795,
       "tag": "0000_cute_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793390074677,
+      "tag": "0001_wealthy_gorgon",
+      "breakpoints": true
     }
   ]
 }

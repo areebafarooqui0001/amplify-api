@@ -11,7 +11,9 @@ const schema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().default(30),
   BCRYPT_COST: z.coerce.number().int().min(4).max(15).default(12),
   CORS_ORIGIN: z.string().default('*'),
-  RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true')
+  RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true'),
+  // The payment provider is simulated. When true, a request may choose the outcome so every state can be demonstrated.
+  ALLOW_SIMULATED_OUTCOMES: z.enum(['true', 'false']).default('true')
 });
 
 export type Config = z.infer<typeof schema>;

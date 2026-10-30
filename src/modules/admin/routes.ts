@@ -5,10 +5,13 @@ import { requireAuth, requireRole } from '../../middleware/auth';
 import { wrap } from '../../middleware/error';
 import { decisionInput, statusFilter, transitionInput } from '../campaigns/schemas';
 import { createCampaignService } from '../campaigns/service';
+import { createContributionService } from '../contributions/service';
+import { SimulatedProvider } from '../payments/provider';
 
 export function adminRoutes(db: Db, config: Config) {
   const router = Router();
   const service = createCampaignService(db);
+  const payments = createContributionService(db, config, new SimulatedProvider(false));
   router.use(requireAuth(db, config), requireRole('admin'));
 
   router.get('/campaigns', wrap(async (req, res) => {
@@ -21,6 +24,11 @@ export function adminRoutes(db: Db, config: Config) {
 
   router.post('/campaigns/:id/transition', wrap(async (req, res) => {
     res.json(await service.adminTransition(req.user!.id, String(req.params.id), transitionInput.parse(req.body)));
+  }));
+
+  // Returns every confirmed payment once a campaign is in refund_pending, then cancels the campaign.
+  router.post('/campaigns/:id/refunds', wrap(async (req, res) => {
+    res.json(await payments.refundCampaign(req.user!.id, String(req.params.id)));
   }));
 
   return router;

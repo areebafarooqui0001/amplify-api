@@ -7,19 +7,21 @@ import { createApp } from '../src/app';
 import { loadConfig } from '../src/config';
 import { schema, type Db } from '../src/db/client';
 
-export const testConfig = loadConfig({
+const baseEnv = {
   NODE_ENV: 'test',
   JWT_SECRET: 'test-secret-test-secret-test-secret-123456',
   BCRYPT_COST: '4',
   RATE_LIMIT_ENABLED: 'false'
-});
+};
+export const testConfig = loadConfig(baseEnv);
 
 // In-memory PostgreSQL running the same migration files as production.
-export async function createTestContext() {
+export async function createTestContext(overrides: Record<string, string> = {}) {
   const client = new PGlite();
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder: './drizzle' });
-  const app = createApp(db as unknown as Db, testConfig);
+  const config = overrides ? loadConfig({ ...baseEnv, ...overrides }) : testConfig;
+  const app = createApp(db as unknown as Db, config);
   return {
     db: db as unknown as Db,
     app,
