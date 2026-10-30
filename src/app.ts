@@ -5,7 +5,10 @@ import { sql } from 'drizzle-orm';
 import type { Config } from './config';
 import type { Db } from './db/client';
 import { errorHandler } from './middleware/error';
+import { adminRoutes } from './modules/admin/routes';
 import { authRoutes } from './modules/auth/routes';
+import { campaignRoutes } from './modules/campaigns/routes';
+import { meRoutes } from './modules/me/routes';
 
 // The app is built from its dependencies so tests can run it against an in-memory database.
 export function createApp(db: Db, config: Config) {
@@ -29,6 +32,9 @@ export function createApp(db: Db, config: Config) {
   });
 
   app.use('/auth', authRoutes(db, config));
+  app.use('/campaigns', campaignRoutes(db, config));
+  app.use('/me', meRoutes(db, config));
+  app.use('/admin', adminRoutes(db, config));
 
   app.use((_req, res) => {
     res.status(404).json({ error: { code: 'not_found', message: 'Route not found' } });

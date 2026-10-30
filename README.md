@@ -9,8 +9,8 @@ Backend for **Amplify**, a community-funded message amplification platform. Crea
 | Stage | Scope | State |
 |---|---|---|
 | 1 | Project setup, schema and migrations, auth, error handling, tests | done |
-| 2 | Campaigns, drafts, lifecycle rules, audit trail | next |
-| 3 | Contributions and payments (cents, idempotency, settlement) | planned |
+| 2 | Campaigns, drafts, lifecycle rules, audit trail, reviewer decisions | done |
+| 3 | Contributions and payments (cents, idempotency, settlement) | next |
 | 4 | Notifications, follows, reports, reviewer endpoints | planned |
 | 5 | OpenAPI docs, Docker image, CI, deployment | planned |
 | 6 | Connect the mobile app | planned |
@@ -22,7 +22,7 @@ cp .env.example .env          # then set JWT_SECRET
 docker compose up -d          # PostgreSQL 16
 npm install
 npm run db:migrate
-npm run db:seed               # creates the reviewer account from SEED_ADMIN_* variables
+npm run db:seed               # reviewer account (from SEED_ADMIN_* variables) plus 5 demo campaigns
 npm run dev
 ```
 
@@ -43,16 +43,47 @@ npm run typecheck
 - **One error shape** everywhere: `{ "error": { "code", "message", "fields?" } }`.
 - **The app is built from its dependencies** (`createApp(db, config)`), so tests run the real HTTP stack against a real PostgreSQL engine using the production migration files.
 
-## Endpoints (stage 1)
+## Campaign lifecycle
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | /health | liveness plus database check |
-| POST | /auth/register | create an account, returns tokens |
-| POST | /auth/login | sign in |
-| POST | /auth/refresh | rotate the refresh token |
-| POST | /auth/logout | revoke a refresh token |
-| GET | /auth/me | current user (requires a token) |
+```
+draft -> under_review -> approved -> funding -> goal_reached -> distribution_prep -> promoting -> completed
+              |                                      |
+              +-> changes_requested -> under_review  +-> refund_pending / failed
+              +-> rejected
+draft / changes_requested -> cancelled
+```
+
+Rules enforced on the server (see `src/modules/campaigns/lifecycle.ts`):
+
+- Only the transitions above are legal. Anything else returns `409 illegal_transition`.
+- **Funding completion does not launch ads.** `goal_reached` must go through `distribution_prep`, and `promoting` needs confirmed payments and ad setup.
+- `goal_reached` is recorded by the payment system, never set by hand.
+- Owners can submit and cancel their own campaigns. Approvals, rejections and everything after funding need a reviewer.
+- Drafts and campaigns in review are visible only to their owner and reviewers. Editing is locked outside `draft` and `changes_requested`, so material changes go back through review.
+- The creator sets the funding goal. It has no default and is never generated.
+- Every status change is written to an append-only audit log in the same database transaction, and the owner is notified.
+
+## Endpoints
+
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| GET | /health | public | liveness plus database check |
+| POST | /auth/register, /auth/login | public | create an account or sign in |
+| POST | /auth/refresh, /auth/logout | public | rotate or revoke a refresh token |
+| GET | /auth/me | signed in | current user |
+| GET | /campaigns | public | published campaigns. Query: `q`, `category`, `status`, `sort`, `limit`, `offset` |
+| GET | /campaigns/:id | public / owner / reviewer | full campaign. Unpublished ones are visible only to owner and reviewers |
+| POST | /campaigns | signed in | create a draft |
+| PATCH | /campaigns/:id | owner | edit while draft or changes_requested |
+| POST | /campaigns/:id/submit | owner | validate every required field, then move to under_review |
+| POST | /campaigns/:id/cancel | owner | cancel a draft |
+| GET | /campaigns/:id/audit | owner / reviewer | status history |
+| GET | /me/campaigns, /me/drafts | signed in | my campaigns |
+| GET | /admin/campaigns | reviewer | all campaigns, optional `status` filter |
+| POST | /admin/campaigns/:id/decision | reviewer | approve, request_changes or reject |
+| POST | /admin/campaigns/:id/transition | reviewer | later lifecycle steps, with rule checks |
+
+Money is always integer cents (`goalAmountCents`, `raisedAmountCents`). Reach is returned as an estimated `{ low, high }` range, never a single promise.
 
 ## Data model
 

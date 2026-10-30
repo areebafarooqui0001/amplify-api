@@ -38,3 +38,52 @@ export async function registerUser(app: ReturnType<typeof createApp>, overrides:
   const res = await request(app).post('/auth/register').send({ ...credentials, ...overrides });
   return res;
 }
+
+// ---------- Stage 2 helpers ----------
+import { eq } from 'drizzle-orm';
+
+type Ctx = Awaited<ReturnType<typeof createTestContext>>;
+
+export async function signUp(ctx: Ctx, email: string, name = 'Test User') {
+  const res = await request(ctx.app).post('/auth/register').send({ email, name, password: 'correct-horse-battery' });
+  return { token: res.body.accessToken as string, id: res.body.user.id as string };
+}
+
+// The role lives in the database, so promoting a user takes effect on their existing token.
+export async function signUpAdmin(ctx: Ctx, email = 'reviewer@example.com') {
+  const user = await signUp(ctx, email, 'Reviewer');
+  await ctx.db.update(schema.users).set({ role: 'admin' }).where(eq(schema.users.id, user.id));
+  return user;
+}
+
+export const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+export const completeInput = (overrides: Record<string, unknown> = {}) => ({
+  title: 'Clean drinking water testing in rural areas',
+  category: 'Health',
+  creatorName: 'Areeb',
+  summary: 'What a year of water testing found, and what residents can ask for.',
+  goalAmountCents: 250_000,
+  targeting: { regions: ['India'], demographics: 'Adults 18 to 55', channels: ['Meta Ads (FB/IG)'], durationDays: 14 },
+  story: [
+    { type: 'heading', content: 'What we found' },
+    { type: 'paragraph', content: 'Samples from forty wells were tested over twelve months.' }
+  ],
+  sources: [{ title: 'Testing summary', publication: 'Example Journal', url: 'https://example.org/summary' }],
+  ...overrides
+});
+
+export const confirmations = { agreedToTruthfulness: true, agreedToTerms: true };
+
+export async function draftAndSubmit(ctx: Ctx, token: string, overrides: Record<string, unknown> = {}) {
+  const created = await request(ctx.app).post('/campaigns').set(auth(token)).send(completeInput(overrides));
+  const submitted = await request(ctx.app).post(`/campaigns/${created.body.id}/submit`).set(auth(token)).send(confirmations);
+  return { id: created.body.id as string, created, submitted };
+}
+
+// Walks a campaign through submit and approval so it is open for backing.
+export async function publish(ctx: Ctx, ownerToken: string, adminToken: string, overrides: Record<string, unknown> = {}) {
+  const { id } = await draftAndSubmit(ctx, ownerToken, overrides);
+  await request(ctx.app).post(`/admin/campaigns/${id}/decision`).set(auth(adminToken)).send({ action: 'approve' });
+  return id;
+}
