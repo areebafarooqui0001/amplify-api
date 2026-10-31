@@ -13,7 +13,12 @@ const schema = z.object({
   CORS_ORIGIN: z.string().default('*'),
   RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true'),
   // The payment provider is simulated. When true, a request may choose the outcome so every state can be demonstrated.
-  ALLOW_SIMULATED_OUTCOMES: z.enum(['true', 'false']).default('true')
+  ALLOW_SIMULATED_OUTCOMES: z.enum(['true', 'false']).default('true'),
+  // Hosting helpers: apply migrations and create the reviewer plus demo campaigns when the server starts.
+  RUN_MIGRATIONS: z.enum(['true', 'false']).default('false'),
+  SEED_DEMO_ON_BOOT: z.enum(['true', 'false']).default('false'),
+  SEED_ADMIN_EMAIL: z.string().optional(),
+  SEED_ADMIN_PASSWORD: z.string().min(10, 'SEED_ADMIN_PASSWORD must be at least 10 characters').optional()
 });
 
 export type Config = z.infer<typeof schema>;

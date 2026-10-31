@@ -5,6 +5,8 @@ import { sql } from 'drizzle-orm';
 import type { Config } from './config';
 import type { Db } from './db/client';
 import { errorHandler } from './middleware/error';
+import { requestLog } from './middleware/requestLog';
+import { mountDocs } from './docs';
 import { adminRoutes } from './modules/admin/routes';
 import { authRoutes } from './modules/auth/routes';
 import { campaignRoutes } from './modules/campaigns/routes';
@@ -17,12 +19,17 @@ import { meRoutes } from './modules/me/routes';
 export function createApp(db: Db, config: Config) {
   const app = express();
   app.disable('x-powered-by');
+  // Behind a hosting proxy the real client address comes from the proxy, which rate limiting needs.
+  if (config.NODE_ENV === 'production') app.set('trust proxy', 1);
+  if (config.NODE_ENV !== 'test') app.use(requestLog);
   app.use(helmet());
   app.use(cors({ origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(',') }));
   app.use(express.json({ limit: '100kb' }));
 
+  mountDocs(app);
+
   app.get('/', (_req, res) => {
-    res.json({ name: 'Amplify API', status: 'ok' });
+    res.json({ name: 'Amplify API', status: 'ok', docs: '/docs' });
   });
 
   app.get('/health', async (_req, res) => {

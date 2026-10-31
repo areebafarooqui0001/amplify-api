@@ -184,6 +184,20 @@ describe('reaching the goal', () => {
     expect(await notesFor(owner.id)).toContain('Funding goal reached');
   });
 
+  it('lets exactly the right number of payments through when many arrive at once', async () => {
+    // Goal is $100. Ten $30 payments race: $30, $60, $90, then the fourth reaches $120 and closes funding.
+    const results = await Promise.all(Array.from({ length: 10 }, () => pay(small, { amountCents: 3000 })));
+    const accepted = results.filter(r => r.status === 201);
+    const refused = results.filter(r => r.status === 409);
+    expect(accepted).toHaveLength(4);
+    expect(refused).toHaveLength(6);
+    const detail = await api().get(`/campaigns/${small}`);
+    expect(detail.body.funding).toMatchObject({ raisedAmountCents: 12_000, backerCount: 4 });
+    expect(detail.body.status).toBe('goal_reached');
+    const rows = await ctx.db.select().from(schema.contributions).where(eq(schema.contributions.campaignId, small));
+    expect(rows).toHaveLength(4); // refused requests leave nothing behind
+  });
+
   it('stops accepting contributions once the goal is reached', async () => {
     await pay(small, { amountCents: 12_000 });
     const res = await pay(small, { amountCents: 500 });

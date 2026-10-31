@@ -12,8 +12,12 @@ Backend for **Amplify**, a community-funded message amplification platform. Crea
 | 2 | Campaigns, drafts, lifecycle rules, audit trail, reviewer decisions | done |
 | 3 | Contributions and payments: cents, idempotency, pending and confirm, refunds | done |
 | 4 | Notifications and preferences, follows, saved campaigns, campaign reports | done |
-| 5 | OpenAPI docs, Docker image, CI against real PostgreSQL, deployment | next |
-| 6 | Connect the mobile app | planned |
+| 5 | OpenAPI docs, Docker image, CI against real PostgreSQL, deployment guide | done |
+| 6 | Connect the mobile app | next |
+
+## API documentation
+
+Interactive documentation is served by the API itself at `/docs`, and the machine-readable OpenAPI 3.1 document at `/openapi.json`. The request schemas are generated from the same Zod schemas the server validates with, so the documentation cannot drift from the real rules. A test fails if a documented route does not exist.
 
 ## Run locally
 
@@ -29,9 +33,18 @@ npm run dev
 ## Test
 
 ```bash
-npm test          # runs against an in-memory PostgreSQL, no Docker needed
+npm test          # in-memory PostgreSQL, nothing to install
 npm run typecheck
+
+# the same suite against a real PostgreSQL server (each test file gets its own temporary database)
+TEST_DATABASE_URL=postgres://amplify:amplify@localhost:5432/postgres npm test
 ```
+
+Continuous integration (`.github/workflows/ci.yml`) runs the suite against a real PostgreSQL 16 service, checks that the migrations match the schema, builds the project and builds the Docker image. The tests include concurrency cases: ten payments racing at the funding goal, and identical retried requests arriving at the same moment.
+
+## Deploy
+
+See [docs/DEPLOY.md](docs/DEPLOY.md) for a step-by-step guide (Neon for PostgreSQL, Render for the API, both on free plans). The server can apply migrations and seed demo data on start, logs one JSON line per request (never headers, bodies or query strings), and shuts down gracefully.
 
 ## Design decisions
 

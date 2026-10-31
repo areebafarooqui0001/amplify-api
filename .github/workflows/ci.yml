@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: amplify
+          POSTGRES_PASSWORD: amplify
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U amplify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The whole suite runs against a real PostgreSQL server here, not the in-memory one used locally.
+      TEST_DATABASE_URL: postgres://amplify:amplify@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Migrations are in sync with the schema
+        run: |
+          npx drizzle-kit generate
+          git diff --exit-code drizzle
+      - run: npm test
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: The production image builds
+        run: docker build -t amplify-api .

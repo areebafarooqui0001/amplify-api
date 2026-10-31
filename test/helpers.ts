@@ -1,4 +1,8 @@
+import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
+import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
+import { migrate as migratePg } from 'drizzle-orm/node-postgres/migrator';
+import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { sql } from 'drizzle-orm';
@@ -15,22 +19,49 @@ const baseEnv = {
 };
 export const testConfig = loadConfig(baseEnv);
 
-// In-memory PostgreSQL running the same migration files as production.
+// By default tests run on in-memory PostgreSQL (no setup needed). Set TEST_DATABASE_URL to run the very same
+// tests against a real PostgreSQL server. Each context then gets its own fresh database, so test files can run in parallel.
 export async function createTestContext(overrides: Record<string, string> = {}) {
-  const client = new PGlite();
-  const db = drizzle(client, { schema });
-  await migrate(db, { migrationsFolder: './drizzle' });
   const config = overrides ? loadConfig({ ...baseEnv, ...overrides }) : testConfig;
-  const app = createApp(db as unknown as Db, config);
+  const adminUrl = process.env.TEST_DATABASE_URL;
+
+  let db: Db;
+  let closeDb: () => Promise<void>;
+
+  if (adminUrl) {
+    const name = `amplify_test_${randomBytes(6).toString('hex')}`;
+    const admin = new Pool({ connectionString: adminUrl, max: 1 });
+    await admin.query(`create database ${name}`);
+    await admin.end();
+    const url = new URL(adminUrl);
+    url.pathname = `/${name}`;
+    const pool = new Pool({ connectionString: url.toString(), max: 10 });
+    const real = drizzlePg(pool, { schema });
+    await migratePg(real, { migrationsFolder: './drizzle' });
+    db = real as unknown as Db;
+    closeDb = async () => {
+      await pool.end();
+      const cleanup = new Pool({ connectionString: adminUrl, max: 1 });
+      await cleanup.query(`drop database if exists ${name} with (force)`);
+      await cleanup.end();
+    };
+  } else {
+    const client = new PGlite();
+    const lite = drizzle(client, { schema });
+    await migrate(lite, { migrationsFolder: './drizzle' });
+    db = lite as unknown as Db;
+    closeDb = () => client.close();
+  }
+
+  const app = createApp(db, config);
   return {
-    db: db as unknown as Db,
+    db,
     app,
+    usingRealPostgres: !!adminUrl,
     async reset() {
-      await db.execute(sql`truncate table users, campaigns, contributions, audit_log, notifications, follows, refresh_tokens, story_blocks, sources restart identity cascade`);
+      await db.execute(sql`truncate table users, campaigns, contributions, audit_log, notifications, follows, bookmarks, notification_preferences, delivery_reports, refresh_tokens, story_blocks, sources restart identity cascade`);
     },
-    async close() {
-      await client.close();
-    }
+    close: closeDb
   };
 }
 
