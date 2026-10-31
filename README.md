@@ -1,3 +1,5 @@
+![CI](https://github.com/areebafarooqui0001/amplify-api/actions/workflows/ci.yml/badge.svg)
+
 # Amplify API
 
 Backend for **Amplify**, a community-funded message amplification platform. Creators write campaigns, reviewers approve them, and backers pay for the ads that spread the message. A contribution pays for distribution. It is not a donation to the creator or the cause.
