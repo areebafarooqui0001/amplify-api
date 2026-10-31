@@ -11,8 +11,8 @@ Backend for **Amplify**, a community-funded message amplification platform. Crea
 | 1 | Project setup, schema and migrations, auth, error handling, tests | done |
 | 2 | Campaigns, drafts, lifecycle rules, audit trail, reviewer decisions | done |
 | 3 | Contributions and payments: cents, idempotency, pending and confirm, refunds | done |
-| 4 | Notifications API, follows, campaign reports | next |
-| 5 | OpenAPI docs, Docker image, CI, deployment | planned |
+| 4 | Notifications and preferences, follows, saved campaigns, campaign reports | done |
+| 5 | OpenAPI docs, Docker image, CI against real PostgreSQL, deployment | next |
 | 6 | Connect the mobile app | planned |
 
 ## Run locally
@@ -76,6 +76,13 @@ Contributions go through a `PaymentProvider` interface. The one included is a si
 - **Refunds.** A reviewer moves a campaign to `refund_pending`, then calls the refunds endpoint. Every confirmed payment becomes `refunded`, funding resets to zero, backers are notified and the campaign is cancelled.
 - **Privacy.** Names are anonymous by default. The backer list shows names only for people who chose to be public, and never amounts. Responses never include the payer id or token hash.
 
+## Notifications, following and reports
+
+- **Notifications** are written in the same transaction as the event that causes them (status change, payment, milestone), so they cannot exist without it. The feed supports `unread`, `type`, `limit` and `offset`, plus a cheap unread-count endpoint for a badge.
+- **Preferences** have four switches (milestones, promotion and reports, payments, review and account). A switched-off category is hidden from the feed and from the unread count at read time, so switching it back on brings the history back.
+- **Following** is idempotent and sends updates. Followers are told about key moments only (halfway funded, goal reached, promotion started, completed) and the owner never gets a duplicate. **Saving** is a separate private reading list.
+- **Reports** keep three things apart: funds (from confirmed payments only), an estimate (clearly labelled, from assumed ad prices) and measured delivery. There is no ad account, so measured figures are recorded by a reviewer, and the report says delivery is unavailable until then. Recorded spend can never exceed the ad budget raised, clicks cannot exceed impressions, and reach (a running total of different people) is checked against total impressions.
+
 ## Endpoints
 
 | Method | Path | Who | Purpose |
@@ -95,14 +102,21 @@ Contributions go through a `PaymentProvider` interface. The one included is a si
 | GET | /campaigns/:id/backers | public | backer count and public names |
 | GET | /contributions/:id | payer (or `X-Access-Token`) | receipt |
 | POST | /contributions/:id/confirm, /cancel | holder of the access token | settle or cancel a pending payment |
+| POST / DELETE | /campaigns/:id/follow, /campaigns/:id/bookmark | signed in | follow or save a published campaign (idempotent) |
+| GET | /campaigns/:id/report | owner / reviewer | funds, estimate and measured delivery, kept separate |
 | GET | /me/campaigns, /me/drafts, /me/contributions | signed in | my campaigns and payment history |
+| GET | /me/follows, /me/bookmarks | signed in | followed and saved campaigns |
+| GET | /me/notifications, /me/notifications/unread-count | signed in | feed (respects preferences) and badge count |
+| POST | /me/notifications/read-all, /me/notifications/:id/read | signed in | mark as read |
+| GET / PUT | /me/notification-preferences | signed in | read or change the four category switches |
 | GET | /admin/campaigns | reviewer | all campaigns, optional `status` filter |
 | POST | /admin/campaigns/:id/decision | reviewer | approve, request_changes or reject |
 | POST | /admin/campaigns/:id/transition | reviewer | later lifecycle steps, with rule checks |
 | POST | /admin/campaigns/:id/refunds | reviewer | refund all payments of a campaign in refund_pending |
+| POST | /admin/campaigns/:id/delivery-reports | reviewer | record measured impressions, clicks, spend and reach |
 
 Money is always integer cents. Reach is returned as an estimated `{ low, high }` range, never a single promise.
 
 ## Data model
 
-users, refresh_tokens, campaigns, story_blocks, sources, contributions, audit_log, notifications, follows. See `src/db/schema.ts`. Campaign statuses follow the lifecycle: draft, under_review, changes_requested, approved, funding, goal_reached, distribution_prep, promoting, completed, plus rejected, cancelled, refund_pending and failed.
+users, refresh_tokens, campaigns, story_blocks, sources, contributions, audit_log, notifications, notification_preferences, follows, bookmarks, delivery_reports. See `src/db/schema.ts`. Campaign statuses follow the lifecycle: draft, under_review, changes_requested, approved, funding, goal_reached, distribution_prep, promoting, completed, plus rejected, cancelled, refund_pending and failed.

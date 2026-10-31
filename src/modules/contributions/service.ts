@@ -7,6 +7,7 @@ import { isUniqueViolation } from '../../lib/db-errors';
 import { AppError, notFound } from '../../lib/errors';
 import { estimateReach, feeBreakdown, percentFunded } from '../../lib/pricing';
 import { parseId, createCampaignService } from '../campaigns/service';
+import { notifyFollowers } from '../notifications/service';
 import type { Actor } from '../campaigns/lifecycle';
 import type { PaymentProvider } from '../payments/provider';
 import type { CreateContribution } from './schemas';
@@ -70,6 +71,7 @@ export function createContributionService(db: Db, config: Config, provider: Paym
       for (const m of MILESTONES) {
         if (before < m && after >= m) {
           await tell(tx, campaign.ownerId, campaign.id, `Funding milestone: ${m}%`, `"${campaign.title}" is ${m}% funded.`, 'milestone');
+          if (m === 50) await notifyFollowers(tx, campaign.id, campaign.ownerId, 'milestone', 'A campaign you follow is halfway funded', `"${campaign.title}" is 50% funded.`);
         }
       }
     }

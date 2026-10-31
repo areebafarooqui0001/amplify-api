@@ -5,17 +5,21 @@ import { optionalAuth, requireAuth } from '../../middleware/auth';
 import { wrap } from '../../middleware/error';
 import { campaignInput, listQuery, submitInput } from './schemas';
 import { createCampaignService } from './service';
+import { createEngagementService } from '../engagement/service';
 
 export function campaignRoutes(db: Db, config: Config) {
   const router = Router();
   const service = createCampaignService(db);
+  const engagement = createEngagementService(db);
 
   router.get('/', wrap(async (req, res) => {
     res.json(await service.listPublic(listQuery.parse(req.query)));
   }));
 
   router.get('/:id', optionalAuth(db, config), wrap(async (req, res) => {
-    res.json(await service.getDetail(String(req.params.id), req.user));
+    const detail = await service.getDetail(String(req.params.id), req.user);
+    // For a signed-in viewer, say whether they already follow or saved it.
+    res.json(req.user ? { ...detail, viewer: await engagement.viewerState(req.user.id, detail.id) } : detail);
   }));
 
   router.post('/', requireAuth(db, config), wrap(async (req, res) => {

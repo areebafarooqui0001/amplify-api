@@ -156,3 +156,34 @@ export const follows = pgTable('follows', {
   campaignId: uuid('campaign_id').notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
   createdAt: createdAt()
 }, t => [primaryKey({ columns: [t.userId, t.campaignId] })]);
+
+// ---------- Stage 4 ----------
+// A person's choice of which notification categories to see. Missing row means everything is on.
+export const notificationPreferences = pgTable('notification_preferences', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  milestone: boolean('milestone').notNull().default(true),
+  promotion: boolean('promotion').notNull().default(true),
+  contribution: boolean('contribution').notNull().default(true),
+  status: boolean('status').notNull().default(true),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+// Saved campaigns (bookmarks). Following is separate: it sends updates.
+export const bookmarks = pgTable('bookmarks', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  campaignId: uuid('campaign_id').notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
+  createdAt: createdAt()
+}, t => [primaryKey({ columns: [t.userId, t.campaignId] })]);
+
+// Measured advertising delivery, entered by a reviewer (in production this would come from the ad platform).
+// Estimates are never stored here, so measured and estimated figures cannot be mixed.
+export const deliveryReports = pgTable('delivery_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  campaignId: uuid('campaign_id').notNull().references(() => campaigns.id, { onDelete: 'cascade' }),
+  impressions: integer('impressions').notNull(),
+  clicks: integer('clicks').notNull(),
+  spendCents: integer('spend_cents').notNull(),
+  reach: integer('reach'), // cumulative unique people, when the platform provides it
+  recordedBy: uuid('recorded_by').references(() => users.id),
+  createdAt: createdAt()
+}, t => [index('delivery_campaign_idx').on(t.campaignId)]);

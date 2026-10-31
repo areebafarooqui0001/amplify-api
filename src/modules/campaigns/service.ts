@@ -54,7 +54,7 @@ function toView(c: CampaignRow, blocks: (typeof storyBlocks.$inferSelect)[], src
   };
 }
 
-function toCard(c: CampaignRow) {
+export function toCard(c: CampaignRow) {
   return {
     id: c.id,
     title: c.title,

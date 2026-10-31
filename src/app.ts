@@ -9,6 +9,8 @@ import { adminRoutes } from './modules/admin/routes';
 import { authRoutes } from './modules/auth/routes';
 import { campaignRoutes } from './modules/campaigns/routes';
 import { contributionRoutes } from './modules/contributions/routes';
+import { engagementRoutes } from './modules/engagement/routes';
+import { reportRoutes } from './modules/reports/routes';
 import { meRoutes } from './modules/me/routes';
 
 // The app is built from its dependencies so tests can run it against an in-memory database.
@@ -34,6 +36,8 @@ export function createApp(db: Db, config: Config) {
 
   app.use('/auth', authRoutes(db, config));
   app.use('/campaigns', campaignRoutes(db, config));
+  app.use('/campaigns', engagementRoutes(db, config));
+  app.use('/campaigns', reportRoutes(db, config));
   app.use('/', contributionRoutes(db, config));
   app.use('/me', meRoutes(db, config));
   app.use('/admin', adminRoutes(db, config));
