@@ -1,6 +1,17 @@
+# Amplify API
+
 ![CI](https://github.com/areebafarooqui0001/amplify-api/actions/workflows/ci.yml/badge.svg)
 
-# Amplify API
+**Live API:** https://amplify-api-qvr9.onrender.com
+**Interactive docs:** https://amplify-api-qvr9.onrender.com/docs
+
+> Hosted on free plans (Render and Neon). After about 15 minutes without traffic the first request can take up to a minute while the server wakes up.
+
+Try it without installing anything:
+
+```bash
+curl https://amplify-api-qvr9.onrender.com/campaigns
+```
 
 Backend for **Amplify**, a community-funded message amplification platform. Creators write campaigns, reviewers approve them, and backers pay for the ads that spread the message. A contribution pays for distribution. It is not a donation to the creator or the cause.
 
